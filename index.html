@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>EPOCH</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:       #000000;
+      --text:     #e8e8e8;
+      --green:    #00ff00;
+      --red:      #ff0000;
+      --dim:      #666666;
+      --preview:  #88ff88;
+      --font:     'Courier New', Courier, monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      flex-shrink: 0;
+      padding: 18px 20px 10px;
+      font-size: 11px;
+      letter-spacing: 0.35em;
+      color: var(--dim);
+      text-transform: uppercase;
+      border-bottom: 1px solid #111;
+      user-select: none;
+    }
+
+    header span.epoch-word {
+      color: var(--green);
+    }
+
+    header .hint {
+      float: right;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: #918e8e;
+      font-weight: bold;
+    }
+
+    .entries-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 0 6px;
+      scroll-behavior: smooth;
+    }
+
+    .entries-container::-webkit-scrollbar {
+      width: 2px;
+    }
+    .entries-container::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+    .entries-container::-webkit-scrollbar-thumb {
+      background: #222;
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      color: #c8bbbb;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      line-height: 2;
+    }
+
+    .entry {
+      display: flex;
+      align-items: baseline;
+      padding: 3px 20px;
+      gap: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      cursor: default;
+      user-select: none;
+      position: relative;
+      transition: background 0.08s ease;
+    }
+
+    .entry:hover {
+      background: #080808;
+    }
+
+    .entry.swiping-right {
+      background: #001800;
+    }
+    .entry.swiping-left {
+      background: #180000;
+    }
+
+    .entry-ts {
+      font-family: var(--font);
+      font-size: 14px;
+      flex-shrink: 0;
+      min-width: 11ch;
+    }
+
+    .entry[data-state="default"]  .entry-ts { color: #e8e8e8; }
+    .entry[data-state="anchor"]   .entry-ts { color: var(--green); }
+    .entry[data-state="flagged"]  .entry-ts { color: var(--red);   }
+
+    .entry-sep {
+      color: #555555;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+
+    .entry-content {
+      color: #e3dada;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font);
+      font-size: 14px;
+    }
+
+    .input-area {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 12px 20px 20px;
+      border-top: 1px solid #111;
+      gap: 0;
+    }
+
+    .input-prefix {
+      color: var(--dim);
+      font-family: var(--font);
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-right: 10px;
+      letter-spacing: 0.05em;
+      user-select: none;
+    }
+
+    .input-prefix span {
+      color: var(--green);
+    }
+
+    #entry-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #00ff00;
+      font-family: var(--font);
+      font-size: 14px;
+      caret-color: var(--green);
+      letter-spacing: 0.02em;
+    }
+
+    #entry-input::placeholder {
+      color: #1e1e1e;
+    }
+
+    #iso-tooltip {
+      position: fixed;
+      display: none;
+      background: #050505;
+      border: 1px solid #1a3a1a;
+      color: var(--preview);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 10px;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+
+    #iso-tooltip.visible {
+      display: block;
+    }
+
+    /* ─── Ghost Scroll Strip ─────────────────────────────────────────── */
+    #ghost-scroll {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 30px;
+      height: 100%;
+      z-index: 800;
+      cursor: ns-resize;
+    }
+
+    #ghost-scroll-thumb {
+      position: absolute;
+      right: 2px;
+      width: 8px;
+      border-radius: 0px;
+      background: var(--green);
+      opacity: 0;
+      transition: opacity 0.3s ease, width 0.15s ease, background 0.15s ease;
+      pointer-events: none;
+    }
+
+    #ghost-scroll:hover  #ghost-scroll-thumb { opacity: 0.25; }
+    #ghost-scroll.active #ghost-scroll-thumb { opacity: 0.45; }
+    #ghost-scroll.dragging #ghost-scroll-thumb {
+      opacity: 1;
+      width: 3px;
+      background: var(--green);
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 14px 14px 8px; }
+      .entry { padding: 4px 14px; }
+      .input-area { padding: 10px 14px 16px; }
+      .entry-ts { min-width: 10ch; }
+      body { font-size: 13px; }
+      .entry-ts, .entry-content, #entry-input { font-size: 13px; }
+      #ghost-scroll { width: 28px; }
+    }
+
+    /* ─── Delta Display ──────────────────────────────────────────────── */
+    .entry-delta {
+      margin-left: auto;
+      padding-left: 16px;
+      font-size: 11px;
+      color: #2a2a2a;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+      font-family: var(--font);
+      transition: color 0.15s ease;
+    }
+    .entry:hover .entry-delta { color: #555555; }
+    .entry-delta.no-delta { visibility: hidden; }
+
+    /* ─── Overlay Panels (AT Calc + README) ─────────────────────────── */
+    .epoch-panel {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      font-family: var(--font);
+      font-size: 12px;
+      line-height: 1.7;
+      background: #000;
+      border: 1px solid #1a1a1a;
+      padding: 16px 18px;
+      max-width: 420px;
+      width: calc(100vw - 40px);
+    }
+    .epoch-panel.visible { display: block; }
+
+    /* AT Calc — bottom left, red */
+    #panel-calc {
+      bottom: 60px;
+      left: 20px;
+      border-color: #330000;
+      color: var(--red);
+    }
+    #panel-calc .panel-title {
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      color: #550000;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    #panel-calc input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #330000;
+      outline: none;
+      color: var(--red);
+      font-family: var(--font);
+      font-size: 13px;
+      width: 100%;
+      padding: 3px 0;
+      caret-color: var(--red);
+    }
+    #panel-calc input::placeholder { color: #330000; }
+    #calc-result {
+      margin-top: 10px;
+      min-height: 2.8em;
+      color: var(--red);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      border-top: 1px solid #1a0000;
+      padding-top: 8px;
+    }
+    #calc-result .calc-label {
+      font-size: 10px;
+      color: #440000;
+      letter-spacing: 0.2em;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .panel-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 10px;
+      color: #333;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+    }
+    .panel-close:hover { color: #666; }
+
+    /* README — centered, green-tinted */
+    #panel-readme {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-color: #0d1a0d;
+      color: #aaaaaa;
+      max-height: 80vh;
+      overflow-y: auto;
+      max-width: 480px;
+    }
+    #panel-readme::-webkit-scrollbar { width: 1px; }
+    #panel-readme::-webkit-scrollbar-thumb { background: #111; }
+    #panel-readme .panel-title {
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      color: var(--green);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    #panel-readme .rm-section {
+      margin-bottom: 12px;
+    }
+    #panel-readme .rm-head {
+      color: #555;
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #panel-readme .rm-line {
+      color: #888;
+      padding-left: 2px;
+    }
+    #panel-readme .rm-key {
+      color: #cccccc;
+      min-width: 18ch;
+      display: inline-block;
+    }
+    #panel-readme .rm-at {
+      color: var(--green);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <span class="epoch-word">EPOCH</span>
+    <span class="hint">ctrl+e export &nbsp;&nbsp; ctrl+h help</span>
+  </header>
+  <div class="entries-container" id="entries-container"></div>
+  <div class="input-area">
+    <span class="input-prefix">[ <span>+</span> ] &gt;</span>
+    <input type="text" id="entry-input" placeholder="_" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+  </div>
+</div>
+
+<div id="iso-tooltip"></div>
+
+<!-- AT Calculator Panel -->
+<div id="panel-calc" class="epoch-panel">
+  <span class="panel-close" id="calc-close">[ESC]</span>
+  <div class="panel-title">AT · CALCULATOR</div>
+  <input type="text" id="calc-input" placeholder="unix or AT+/81/03/26 ..." autocomplete="off" spellcheck="false" />
+  <div id="calc-result">
+    <span class="calc-label">RESULT</span>
+    <span id="calc-output">—</span>
+  </div>
+</div>
+
+<!-- README Panel -->
+<div id="panel-readme" class="epoch-panel">
+  <span class="panel-close" id="readme-close">[ESC]</span>
+  <div class="panel-title">EPOCH · README</div>
+
+  <div class="rm-section">
+    <div class="rm-head">// WHAT IS EPOCH</div>
+    <div class="rm-line">Manual, append-only Unix timestamp log.</div>
+    <div class="rm-line">Time is atomic. Entries are immutable.</div>
+    <div class="rm-line">No edits. No deletes. A galvanized register.</div>
+  </div>
+
+  <div class="rm-section">
+    <div class="rm-head">// ATOMIC TIME · AT+/-</div>
+    <div class="rm-line"><span class="rm-at">AT+/N</span> = N years after 1945 (Trinity test)</div>
+    <div class="rm-line"><span class="rm-at">AT-/N</span> = N years before 1945</div>
+    <div class="rm-line"><span class="rm-at">AT+/81/03/26</span> = year 81 AT, March 26</div>
+    <div class="rm-line">Current year: <span class="rm-at" id="rm-current-at">—</span></div>
+  </div>
+
+  <div class="rm-section">
+    <div class="rm-head">// INPUT</div>
+    <div class="rm-line"><span class="rm-key">type + ENTER</span>log entry with Unix timestamp</div>
+    <div class="rm-line"><span class="rm-key">/calc</span>open AT calculator</div>
+    <div class="rm-line"><span class="rm-key">CTRL+H</span>toggle this readme</div>
+    <div class="rm-line"><span class="rm-key">CTRL+E</span>export log (or selection)</div>
+    <div class="rm-line"><span class="rm-key">CTRL+SHIFT+E</span>export with AT notation</div>
+  </div>
+
+  <div class="rm-section">
+    <div class="rm-head">// ENTRY STATES</div>
+    <div class="rm-line"><span class="rm-key">swipe right</span>anchor (green)</div>
+    <div class="rm-line"><span class="rm-key">swipe left</span>flagged (red)</div>
+    <div class="rm-line"><span class="rm-key">swipe again</span>revert to default</div>
+    <div class="rm-line"><span class="rm-key">right-click</span>toggle anchor</div>
+    <div class="rm-line"><span class="rm-key">CTRL+click</span>toggle flagged</div>
+    <div class="rm-line"><span class="rm-key">hold (500ms)</span>ISO preview</div>
+  </div>
+
+  <div class="rm-section">
+    <div class="rm-head">// EXPORT</div>
+    <div class="rm-line">Green entries selected → exports selection only.</div>
+    <div class="rm-line">No selection → exports full log.</div>
+    <div class="rm-line">Format: <span class="rm-at">timestamp|state|content</span></div>
+  </div>
+
+  <div class="rm-section">
+    <div class="rm-head">// SCROLL</div>
+    <div class="rm-line">Hover right edge → ghost scroll strip appears.</div>
+    <div class="rm-line">Drag to jump. Pull down (mobile) → focus input.</div>
+  </div>
+</div>
+
+
+
+<!-- Ghost scroll strip injected by JS below -->
+
+<script>
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'epoch_log';
+  let entries = [];
+  let container = null;
+  let input = null;
+  let tooltip = null;
+
+  function getAtomicTime(ts) {
+    try {
+      const date = new Date(ts * 1000);
+      const timeString = date.toLocaleTimeString('en-GB');
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const delta = year - 1945;
+      const label = delta >= 0 ? `AT+/${delta}` : `AT-/${Math.abs(delta)}`;
+      return { 
+        label: label, 
+        extended: `${label}/${month}/${day}`,
+        iso24h: timeString,
+        raw: ts
+      };
+    } catch (error) {
+      return {
+        label: 'AT+/0',
+        extended: 'AT+/0/00/00',
+        iso24h: '00:00:00',
+        raw: ts
+      };
+    }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      entries = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(entries)) entries = [];
+    } catch (_) {
+      entries = [];
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    } catch (_) {}
+  }
+
+  function toggleState(idx, direction) {
+    const entry = entries[idx];
+    if (!entry) return;
+    const scrollTop = container ? container.scrollTop : 0;
+    if (entry.state === direction) {
+      entry.state = 'default';
+    } else {
+      entry.state = direction;
+    }
+    save();
+    render(false);
+    if (container) container.scrollTop = scrollTop;
+  }
+
+  function showTooltip(ts, x, y) {
+    if (!tooltip) return;
+
+    const atomic = getAtomicTime(ts);
+
+    const date = new Date(ts * 1000);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+
+    const isoDate = `${yyyy}-${mm}-${dd}`;
+    const line1 = `${atomic.extended} + ${isoDate}`;
+    const line2 = atomic.iso24h;
+
+    tooltip.innerHTML = `<strong>${line1}</strong><br>${line2}`;
+    tooltip.classList.add('visible');
+
+    const tw = tooltip.offsetWidth || 260;
+    const th = tooltip.offsetHeight || 48;
+
+    let left = x - (tw / 2);
+    let top = y - th - 12;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+    top = Math.max(8, top);
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+  }
+
+  function hideTooltip() {
+    if (tooltip) tooltip.classList.remove('visible');
+  }
+
+
+  function formatDelta(seconds) {
+    if (seconds < 0) seconds = 0;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    const pad = n => String(n).padStart(2, '0');
+    if (h > 0) return `+${h}:${pad(m)}:${pad(s)}`;
+    if (m > 0) return `+${pad(m)}:${pad(s)}`;
+    return `+00:${pad(s)}`;
+  }
+
+  function render(scrollToBottom) {
+    if (!container) return;
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="empty-state">// no entries yet<br>// type below and press enter</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    entries.forEach((e, idx) => {
+      const row = document.createElement('div');
+      row.className = 'entry';
+      row.dataset.state = e.state;
+      row.dataset.idx = idx;
+      const ts = document.createElement('span');
+      ts.className = 'entry-ts';
+      ts.textContent = e.timestamp;
+      const sep = document.createElement('span');
+      sep.className = 'entry-sep';
+      sep.textContent = '|';
+      const content = document.createElement('span');
+      content.className = 'entry-content';
+      content.textContent = e.content;
+      const delta = document.createElement('span');
+      delta.className = 'entry-delta';
+      if (idx === 0) {
+        delta.classList.add('no-delta');
+        delta.textContent = '+00:00';
+      } else {
+        const diff = e.timestamp - entries[idx - 1].timestamp;
+        delta.textContent = formatDelta(diff);
+      }
+      row.appendChild(ts);
+      row.appendChild(sep);
+      row.appendChild(content);
+      row.appendChild(delta);
+      attachEntryEvents(row, idx, e.timestamp);
+      frag.appendChild(row);
+    });
+    container.innerHTML = '';
+    container.appendChild(frag);
+    if (scrollToBottom) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
+  function attachEntryEvents(row, idx, ts) {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let swipeTriggered = false;
+    let longPressActive = false;
+    let longPressLocalTimer = null;
+
+    row.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      swipeTriggered = false;
+      longPressActive = false;
+      longPressLocalTimer = setTimeout(() => {
+        longPressActive = true;
+        showTooltip(ts, t.clientX, t.clientY);
+      }, 500);
+    }, { passive: true });
+
+    row.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        clearTimeout(longPressLocalTimer);
+        if (longPressActive) hideTooltip();
+      }
+      if (!swipeTriggered && Math.abs(dx) > 50 && Math.abs(dy) < 35) {
+        swipeTriggered = true;
+        clearTimeout(longPressLocalTimer);
+        if (longPressActive) hideTooltip();
+        const dir = dx > 0 ? 'anchor' : 'flagged';
+        row.classList.add(dx > 0 ? 'swiping-right' : 'swiping-left');
+        toggleState(idx, dir);
+        setTimeout(() => {
+          row.classList.remove('swiping-right', 'swiping-left');
+        }, 200);
+      }
+    }, { passive: true });
+
+    row.addEventListener('touchend', () => {
+      clearTimeout(longPressLocalTimer);
+      if (longPressActive) hideTooltip();
+      longPressActive = false;
+      swipeTriggered = false;
+    });
+
+    row.addEventListener('touchcancel', () => {
+      clearTimeout(longPressLocalTimer);
+      hideTooltip();
+      swipeTriggered = false;
+      longPressActive = false;
+    });
+
+    row.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        showTooltip(ts, e.clientX, e.clientY);
+        const hideOnUp = () => { 
+          hideTooltip(); 
+          document.removeEventListener('mouseup', hideOnUp); 
+        };
+        document.addEventListener('mouseup', hideOnUp);
+      } else {
+        toggleState(idx, 'anchor');
+      }
+    });
+
+    row.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        toggleState(idx, 'flagged');
+      }
+    });
+
+    let mouseHoldTimer = null;
+    let mousePreviewActive = false;
+
+    row.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      mouseHoldTimer = setTimeout(() => {
+        mousePreviewActive = true;
+        showTooltip(ts, e.clientX, e.clientY);
+      }, 500);
+    });
+
+    row.addEventListener('mouseup', () => {
+      clearTimeout(mouseHoldTimer);
+      if (mousePreviewActive) {
+        hideTooltip();
+        mousePreviewActive = false;
+      }
+    });
+
+    row.addEventListener('mouseleave', () => {
+      clearTimeout(mouseHoldTimer);
+      if (mousePreviewActive) {
+        hideTooltip();
+        mousePreviewActive = false;
+      }
+    });
+  }
+
+  function handleEntrySubmit() {
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
+
+    // Command: /calc
+    if (content === '/calc') {
+      input.value = '';
+      if (window._epochOpenCalc) window._epochOpenCalc();
+      return;
+    }
+
+    const entry = {
+      timestamp: Math.floor(Date.now() / 1000),
+      state: 'default',
+      content: content
+    };
+    entries.push(entry);
+    input.value = '';
+    save();
+    render(true);
+    const atomic = getAtomicTime(entry.timestamp);
+    console.log(`Entry added: ${atomic.extended} (${atomic.iso24h})`);
+  }
+
+  function exportLog() {
+    if (entries.length === 0) return;
+
+    // If any entries are anchored (green), export only those.
+    // Otherwise export the full log.
+    const anchored = entries.filter(e => e.state === 'anchor');
+    const subset   = anchored.length > 0 ? anchored : entries;
+    const tag      = anchored.length > 0 ? 'selection' : 'full';
+
+    const lines = subset.map(e => `${e.timestamp}|${e.state}|${e.content}`).join('\n');
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const filename = `epoch_export_${tag}_${datePart}_${timePart}.txt`;
+    const blob = new Blob([lines], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportWithAtomicTime() {
+    if (entries.length === 0) return;
+    const header = '#EPOCH Export with Atomic Time\n#FORMAT UNIX + AT\n';
+    const lines = entries.map(e => {
+      const atomic = getAtomicTime(e.timestamp);
+      return `${e.timestamp}|${atomic.extended}|${e.state}|${e.content}`;
+    }).join('\n');
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const filename = `epoch_at_export_${datePart}_${timePart}.txt`;
+    const blob = new Blob([header + lines], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function setupAutoFocus() {
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.entry') && input) {
+        input.focus();
+      }
+    });
+  }
+
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e' && !e.shiftKey) {
+        e.preventDefault();
+        exportLog();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        exportWithAtomicTime();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        if (window._epochToggleReadme) window._epochToggleReadme();
+      }
+      if (e.key === 'Escape') {
+        if (window._epochCloseReadme)  window._epochCloseReadme();
+        const calcPanel = document.getElementById('panel-calc');
+        if (calcPanel) calcPanel.classList.remove('visible');
+        if (input) input.focus();
+      }
+    });
+  }
+
+  function setupInputListener() {
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleEntrySubmit();
+        }
+      });
+    }
+  }
+
+  function logAtomicTimeReference() {
+    const now = Math.floor(Date.now() / 1000);
+    const atomic = getAtomicTime(now);
+    console.log(`EPOCH Ready - Current Atomic Time: ${atomic.label} (${atomic.iso24h})`);
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     AT CALCULATOR
+  ═══════════════════════════════════════════════════════════════════ */
+  function setupCalc() {
+    const panel     = document.getElementById('panel-calc');
+    const calcInput = document.getElementById('calc-input');
+    const calcOut   = document.getElementById('calc-output');
+    const closeBtn  = document.getElementById('calc-close');
+
+    function openCalc() {
+      panel.classList.add('visible');
+      calcInput.focus();
+    }
+    function closeCalc() {
+      panel.classList.remove('visible');
+      if (input) input.focus();
+    }
+
+    closeBtn.addEventListener('click', closeCalc);
+
+    // Convert Unix → AT or AT-style string → Unix
+    function runCalc(val) {
+      val = val.trim();
+      if (!val) { calcOut.textContent = '—'; return; }
+
+      const DIM  = 'color:#8800000;font-size:11px';   // secondary info — dim
+      const MAIN = 'color:#ff0000;font-size:14px;font-weight:bold'; // primary result — bright
+
+      // ── Unix integer → AT + ISO date ─────────────────────────────
+      if (/^-?\d{8,}$/.test(val)) {
+        const ts   = parseInt(val, 10);
+        const date = new Date(ts * 1000);
+        const y    = date.getFullYear();
+        const m    = String(date.getMonth()+1).padStart(2,'0');
+        const d    = String(date.getDate()).padStart(2,'0');
+        const atY  = y - 1945;
+        const sign = atY >= 0 ? '+' : '-';
+        const atStr = `AT${sign}/${Math.abs(atY)}/${m}/${d}`;
+        calcOut.innerHTML =
+          `<span style="${MAIN}">${atStr}</span><br>` +
+          `<span style="${DIM}">${date.toISOString().slice(0,10)}</span>`;
+        return;
+      }
+
+      // ── YYYY/MM/DD or YYYY-MM-DD → AT+/- ─────────────────────────
+      const gregMatch = val.match(/^(-?\d{1,4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+      if (gregMatch) {
+        const year = parseInt(gregMatch[1], 10);
+        const mo   = parseInt(gregMatch[2], 10);
+        const dy   = parseInt(gregMatch[3], 10);
+        const date = new Date(Date.UTC(year, mo-1, dy, 12, 0, 0));
+        // Handle years < 100 — Date.UTC misinterprets them
+        date.setUTCFullYear(year);
+        const atY  = year - 1945;
+        const sign = atY >= 0 ? '+' : '-';
+        const unix = Math.floor(date.getTime() / 1000);
+        const atStr = `AT${sign}/${Math.abs(atY)}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
+        calcOut.innerHTML =
+          `<span style="${MAIN}">${atStr}</span><br>` +
+          `<span style="${DIM}">unix ${unix}</span>`;
+        return;
+      }
+
+      // ── AT+/N or AT+/N/MM/DD → Unix + Gregorian date ─────────────
+      const atMatch = val.match(/^AT([+-])\/?(-?\d+)(?:\/(\d{1,2})(?:\/(\d{1,2}))?)?$/i);
+      if (atMatch) {
+        const sign  = atMatch[1] === '+' ? 1 : -1;
+        const yOff  = parseInt(atMatch[2], 10);
+        const mo    = atMatch[3] ? parseInt(atMatch[3], 10) : 1;
+        const dy    = atMatch[4] ? parseInt(atMatch[4], 10) : 1;
+        const year  = 1945 + sign * yOff;
+        const date  = new Date(Date.UTC(year, mo-1, dy, 12, 0, 0));
+        date.setUTCFullYear(year);
+        const unix  = Math.floor(date.getTime() / 1000);
+        const greg  = `${year}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
+        calcOut.innerHTML =
+          `<span style="${MAIN}">${greg}</span><br>` +
+          `<span style="${DIM}">unix ${unix}</span>`;
+        return;
+      }
+
+      calcOut.textContent = 'unrecognized format';
+    }
+
+    calcInput.addEventListener('input',   () => runCalc(calcInput.value));
+    calcInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCalc(); });
+
+    // Expose openCalc for command handler
+    window._epochOpenCalc = openCalc;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     README PANEL
+  ═══════════════════════════════════════════════════════════════════ */
+  function setupReadme() {
+    const panel    = document.getElementById('panel-readme');
+    const closeBtn = document.getElementById('readme-close');
+    const atSpan   = document.getElementById('rm-current-at');
+
+    // Fill current AT year
+    const atY = new Date().getFullYear() - 1945;
+    if (atSpan) atSpan.textContent = `AT+/${atY}`;
+
+    function toggleReadme() { panel.classList.toggle('visible'); }
+    function closeReadme()  { panel.classList.remove('visible'); if (input) input.focus(); }
+
+    closeBtn.addEventListener('click', closeReadme);
+    window._epochToggleReadme = toggleReadme;
+    window._epochCloseReadme  = closeReadme;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     GHOST SCROLL STRIP
+     Invisible 20px strip on the right edge.
+     Hover reveals a dim thumb. Drag scrolls the log proportionally.
+  ═══════════════════════════════════════════════════════════════════ */
+  function setupGhostScroll() {
+    const log = document.getElementById('entries-container');
+    if (!log) return;
+
+    const strip = document.createElement('div');
+    strip.id = 'ghost-scroll';
+    const thumb = document.createElement('div');
+    thumb.id = 'ghost-scroll-thumb';
+    strip.appendChild(thumb);
+    document.body.appendChild(strip);
+
+    let dragging = false;
+
+    function updateThumb() {
+      const scrollable = log.scrollHeight - log.clientHeight;
+      if (scrollable <= 0) {
+        thumb.style.height = '100%';
+        thumb.style.top = '0px';
+        return;
+      }
+      const ratio  = log.clientHeight / log.scrollHeight;
+      const hPct   = Math.max(ratio * 100, 10);
+      const topPct = (log.scrollTop / scrollable) * (100 - hPct);
+      thumb.style.height = hPct + '%';
+      thumb.style.top    = topPct + '%';
+    }
+
+    function scrollFromY(clientY) {
+      const rect     = strip.getBoundingClientRect();
+      const rel      = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      const scrollable = log.scrollHeight - log.clientHeight;
+      log.scrollTop  = rel * scrollable;
+      updateThumb();
+    }
+
+    // Mouse
+    strip.addEventListener('mouseenter', () => {
+      strip.classList.add('active');
+      updateThumb();
+    });
+    strip.addEventListener('mouseleave', () => {
+      if (!dragging) strip.classList.remove('active');
+    });
+    strip.addEventListener('mousedown', (e) => {
+      dragging = true;
+      strip.classList.add('dragging');
+      scrollFromY(e.clientY);
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (dragging) scrollFromY(e.clientY);
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      strip.classList.remove('dragging', 'active');
+    });
+
+    // Touch
+    strip.addEventListener('touchstart', (e) => {
+      dragging = true;
+      strip.classList.add('dragging');
+      scrollFromY(e.touches[0].clientY);
+      e.preventDefault();
+    }, { passive: false });
+    strip.addEventListener('touchmove', (e) => {
+      if (dragging) scrollFromY(e.touches[0].clientY);
+      e.preventDefault();
+    }, { passive: false });
+    strip.addEventListener('touchend', () => {
+      dragging = false;
+      strip.classList.remove('dragging');
+    });
+
+    // Keep thumb in sync with normal scroll
+    log.addEventListener('scroll', updateThumb, { passive: true });
+    updateThumb();
+  }
+
+  function init() {
+    container = document.getElementById('entries-container');
+    input = document.getElementById('entry-input');
+    tooltip = document.getElementById('iso-tooltip');
+    load();
+    render(true);
+    setupInputListener();
+    setupKeyboardShortcuts();
+    setupAutoFocus();
+    setupCalc();
+    setupReadme();
+    setupGhostScroll();
+    if (input) input.focus();
+    logAtomicTimeReference();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
+</html>
