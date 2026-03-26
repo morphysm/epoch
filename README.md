@@ -37,7 +37,7 @@ Your data lives in your browser's `localStorage` — it never leaves your machin
 
 [**→ Download EPOCH**](https://raw.githubusercontent.com/morphysm/epoch/main/index.html)
 
-*Right-click the link → Save Link As → open in browser.*
+*Right-click the link → Save Link [index.html] As → open in browser.*
 
 Or visit the [live demo](https://morphysm.github.io/epoch) to try it first.
 
