@@ -145,6 +145,10 @@ timestamp|state|content
 Chronological order, oldest first. Pipe-delimited. No header.  
 Machine-readable and human-readable without any tooling.
 
+## Further Reading
+
+[AT+/− · Time, Trinity, and the Mechanics of EPOCH](AT_calendar_history.md)
+
 ---
 
 ## License
