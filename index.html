@@ -406,7 +406,7 @@
 <div class="app">
   <header>
     <span class="epoch-word">EPOCH</span>
-    <span class="hint">ctrl+e export &nbsp;&nbsp; ctrl+h help</span>
+    <span class="hint">alt+e export &nbsp;&nbsp; alt+h help</span>
   </header>
   <div class="entries-container" id="entries-container"></div>
   <div class="input-area">
@@ -457,9 +457,9 @@
     <div class="rm-head">// INPUT</div>
     <div class="rm-line"><span class="rm-key">type + ENTER</span>log entry with Unix timestamp</div>
     <div class="rm-line"><span class="rm-key">/calc</span>open AT calculator</div>
-    <div class="rm-line"><span class="rm-key">CTRL+H</span>toggle this readme</div>
-    <div class="rm-line"><span class="rm-key">CTRL+E</span>export — green (anchor) + ALL red (flagged)</div>
-    <div class="rm-line"><span class="rm-key">CTRL+SHIFT+E</span>export with AT notation (same logic)</div>
+    <div class="rm-line"><span class="rm-key">ALT+H</span>toggle this readme</div>
+    <div class="rm-line"><span class="rm-key">ALT+E</span>export — green (anchor) + ALL red (flagged)</div>
+    <div class="rm-line"><span class="rm-key">ALT+SHIFT+E</span>export with AT notation (same logic)</div>
   </div>
 
   <div class="rm-section">
@@ -951,9 +951,9 @@
 
   function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'e' && !e.shiftKey) { e.preventDefault(); exportLog(); }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') { e.preventDefault(); exportWithAtomicTime(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'h') { e.preventDefault(); if (window._epochToggleReadme) window._epochToggleReadme(); }
+      if (e.altKey && e.key === 'e' && !e.shiftKey) { e.preventDefault(); exportLog(); }
+      if (e.altKey && e.shiftKey && e.key === 'E') { e.preventDefault(); exportWithAtomicTime(); }
+      if (e.altKey && e.key === 'h') { e.preventDefault(); if (window._epochToggleReadme) window._epochToggleReadme(); }
       if (e.key === 'Escape') {
         if (window._epochCloseReadme) window._epochCloseReadme();
         const calcPanel = document.getElementById('panel-calc');
