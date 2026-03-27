@@ -59,18 +59,19 @@ Each entry can be marked after the fact:
 | Swipe again | Revert to default |
 
 States are mutually exclusive. The entry content is never altered.
+**Desktop only.** On mobile, states can be set after the fact on desktop.
 
 ### ISO Preview
-Hold an entry (500ms on desktop, long-press on mobile) to see a temporary  
-ISO 8601 human-readable date. Disappears on release. Not stored.
+Hold an entry (500ms) to see a temporary ISO 8601 human-readable date.
+Disappears on release. Not stored. **Desktop only.**
 
 ### Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+E` | Export log (or selection if any entries are green) |
-| `Ctrl+Shift+E` | Export with AT+/− notation |
-| `Ctrl+H` | Toggle README / help |
+| `Alt+E` | Export log (or selection if any entries are green) |
+| `Alt+Shift+E` | Export with AT+/− notation |
+| `Alt+H` | Toggle README / help |
 | `/calc` + Enter | Open AT calculator |
 | `Escape` | Close any open panel |
 
@@ -96,7 +97,7 @@ EPOCH includes an Atomic Time calculator and notation system.
 **AT−/N** = N years before 1945.
 
 ```
-AT+/81  →  2026
+AT+/80  →  2025/2026
 AT+/0   →  1945
 AT-/169 →  1776
 ```
@@ -160,4 +161,4 @@ If you build something with it, a mention is appreciated but not required.
 ---
 
 *J.K., Norrland XXVI*
-*AT+/81*
+*AT+/80*
