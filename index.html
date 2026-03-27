@@ -491,6 +491,13 @@
 (function () {
   'use strict';
 
+  // Detect touch-primary devices — on mobile, gestures are disabled.
+  // Input and scroll work normally. States can be set on desktop.
+  function isMobile() {
+    return window.matchMedia('(pointer: coarse)').matches;
+  }
+
+
   // Trinity detonation — July 16, 1945, 05:29:21 MWT (11:29:21 UTC)
   const AT_ZERO_UNIX = -771894639;
   const AT_YEAR_SECONDS = 31556952; // mean astronomical year
@@ -761,48 +768,51 @@
       longPressTimer = mouseHoldTimer = null;
     }
 
-    row.addEventListener('touchstart', (e) => {
-      clearTimers();
-      const t = e.touches[0];
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-      swipeTriggered = false;
-      longPressActive = false;
-      longPressTimer = setTimeout(() => {
-        longPressActive = true;
-        showTooltip(ts, t.clientX, t.clientY);
-      }, 500);
-    }, { passive: true });
+    if (!isMobile()) {
+      // Desktop-only: swipe gestures + long-press ISO preview
+      row.addEventListener('touchstart', (e) => {
+        clearTimers();
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        swipeTriggered = false;
+        longPressActive = false;
+        longPressTimer = setTimeout(() => {
+          longPressActive = true;
+          showTooltip(ts, t.clientX, t.clientY);
+        }, 500);
+      }, { passive: true });
 
-    row.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      const dx = t.clientX - touchStartX;
-      const dy = t.clientY - touchStartY;
-      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      row.addEventListener('touchmove', (e) => {
+        const t = e.touches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          clearTimers();
+          if (longPressActive) hideTooltip();
+        }
+        if (!swipeTriggered && Math.abs(dx) > 50 && Math.abs(dy) < 35) {
+          swipeTriggered = true;
+          clearTimers();
+          if (longPressActive) hideTooltip();
+          const dir = dx > 0 ? 'anchor' : 'flagged';
+          row.classList.add(dx > 0 ? 'swiping-right' : 'swiping-left');
+          toggleState(idx, dir);
+          setTimeout(() => row.classList.remove('swiping-right', 'swiping-left'), 200);
+        }
+      }, { passive: true });
+
+      row.addEventListener('touchend', () => {
         clearTimers();
         if (longPressActive) hideTooltip();
-      }
-      if (!swipeTriggered && Math.abs(dx) > 50 && Math.abs(dy) < 35) {
-        swipeTriggered = true;
+        swipeTriggered = false;
+      });
+      row.addEventListener('touchcancel', () => {
         clearTimers();
-        if (longPressActive) hideTooltip();
-        const dir = dx > 0 ? 'anchor' : 'flagged';
-        row.classList.add(dx > 0 ? 'swiping-right' : 'swiping-left');
-        toggleState(idx, dir);
-        setTimeout(() => row.classList.remove('swiping-right', 'swiping-left'), 200);
-      }
-    }, { passive: true });
-
-    row.addEventListener('touchend', () => {
-      clearTimers();
-      if (longPressActive) hideTooltip();
-      swipeTriggered = false;
-    });
-    row.addEventListener('touchcancel', () => {
-      clearTimers();
-      hideTooltip();
-      swipeTriggered = false;
-    });
+        hideTooltip();
+        swipeTriggered = false;
+      });
+    }
 
     row.addEventListener('contextmenu', (e) => {
       e.preventDefault();
