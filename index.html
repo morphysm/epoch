@@ -18,6 +18,7 @@
       --red:      #ff0000;
       --dim:      #666666;
       --preview:  #88ff88;
+      --warning:  #ff0000;
       --font:     'Courier New', Courier, monospace;
     }
 
@@ -112,6 +113,12 @@
       background: #180000;
     }
 
+    .entry.tampered {
+      text-decoration: line-through;
+      text-decoration-color: var(--red);
+      text-decoration-thickness: 2px;
+    }
+
     .entry-ts {
       font-family: var(--font);
       font-size: 14px;
@@ -195,6 +202,37 @@
       display: block;
     }
 
+    /* ─── Notification Toast ───────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0a0a0a;
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 8px 16px;
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      z-index: 3000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      white-space: nowrap;
+    }
+    .toast.error {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .toast.warning {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+
     /* ─── Ghost Scroll Strip ─────────────────────────────────────────── */
     #ghost-scroll {
       position: fixed;
@@ -240,13 +278,13 @@
       margin-left: auto;
       padding-left: 16px;
       font-size: 11px;
-      color: #2a2a2a;
+      color: #3a3a3a;
       letter-spacing: 0.04em;
       flex-shrink: 0;
       font-family: var(--font);
       transition: color 0.15s ease;
     }
-    .entry:hover .entry-delta { color: #555555; }
+    .entry:hover .entry-delta { color: #6a6a6a; }
     .entry-delta.no-delta { visibility: hidden; }
 
     /* ─── Overlay Panels (AT Calc + README) ─────────────────────────── */
@@ -269,20 +307,20 @@
     #panel-calc {
       bottom: 60px;
       left: 20px;
-      border-color: #330000;
+      border-color: #430000;
       color: var(--red);
     }
     #panel-calc .panel-title {
       font-size: 10px;
       letter-spacing: 0.4em;
-      color: #550000;
+      color: #650000;
       margin-bottom: 10px;
       text-transform: uppercase;
     }
     #panel-calc input {
       background: transparent;
       border: none;
-      border-bottom: 1px solid #330000;
+      border-bottom: 1px solid #430000;
       outline: none;
       color: var(--red);
       font-family: var(--font);
@@ -291,14 +329,14 @@
       padding: 3px 0;
       caret-color: var(--red);
     }
-    #panel-calc input::placeholder { color: #330000; }
+    #panel-calc input::placeholder { color: #430000; }
     #calc-result {
       margin-top: 10px;
       min-height: 2.8em;
       color: var(--red);
       font-size: 13px;
       letter-spacing: 0.03em;
-      border-top: 1px solid #1a0000;
+      border-top: 1px solid #300101;
       padding-top: 8px;
     }
     #calc-result .calc-label {
@@ -378,12 +416,13 @@
 </div>
 
 <div id="iso-tooltip"></div>
+<div id="toast" class="toast"></div>
 
 <!-- AT Calculator Panel -->
 <div id="panel-calc" class="epoch-panel">
   <span class="panel-close" id="calc-close">[ESC]</span>
   <div class="panel-title">AT · CALCULATOR</div>
-  <input type="text" id="calc-input" placeholder="unix or AT+/81/03/26 ..." autocomplete="off" spellcheck="false" />
+  <input type="text" id="calc-input" placeholder="unix or AT+/80/03/26 ..." autocomplete="off" spellcheck="false" />
   <div id="calc-result">
     <span class="calc-label">RESULT</span>
     <span id="calc-output">—</span>
@@ -400,13 +439,17 @@
     <div class="rm-line">Manual, append-only Unix timestamp log.</div>
     <div class="rm-line">Time is atomic. Entries are immutable.</div>
     <div class="rm-line">No edits. No deletes. A galvanized register.</div>
+    <div class="rm-line">States are preserved in exports.</div>
+    <div class="rm-line">Export records are metadata — not counted in totals.</div>
+    <div class="rm-line">Hash chain ensures integrity; tampering is detected and visually marked.</div>
   </div>
 
   <div class="rm-section">
     <div class="rm-head">// ATOMIC TIME · AT+/-</div>
     <div class="rm-line"><span class="rm-at">AT+/N</span> = N years after 1945 (Trinity test)</div>
     <div class="rm-line"><span class="rm-at">AT-/N</span> = N years before 1945</div>
-    <div class="rm-line"><span class="rm-at">AT+/81/03/26</span> = year 81 AT, March 26</div>
+    <div class="rm-line"><span class="rm-at">AT+/0</span> = Unix -771894639 · 1945-07-16 · 05:29:21 MWT</div>
+    <div class="rm-line"><span class="rm-at" id="rm-example-at">AT+/80</span> = current AT year</div>
     <div class="rm-line">Current year: <span class="rm-at" id="rm-current-at">—</span></div>
   </div>
 
@@ -415,24 +458,25 @@
     <div class="rm-line"><span class="rm-key">type + ENTER</span>log entry with Unix timestamp</div>
     <div class="rm-line"><span class="rm-key">/calc</span>open AT calculator</div>
     <div class="rm-line"><span class="rm-key">CTRL+H</span>toggle this readme</div>
-    <div class="rm-line"><span class="rm-key">CTRL+E</span>export log (or selection)</div>
-    <div class="rm-line"><span class="rm-key">CTRL+SHIFT+E</span>export with AT notation</div>
+    <div class="rm-line"><span class="rm-key">CTRL+E</span>export — green (anchor) + ALL red (flagged)</div>
+    <div class="rm-line"><span class="rm-key">CTRL+SHIFT+E</span>export with AT notation (same logic)</div>
   </div>
 
   <div class="rm-section">
     <div class="rm-head">// ENTRY STATES</div>
-    <div class="rm-line"><span class="rm-key">swipe right</span>anchor (green)</div>
-    <div class="rm-line"><span class="rm-key">swipe left</span>flagged (red)</div>
+    <div class="rm-line"><span class="rm-key">swipe right / right-click</span>anchor (<span style="color: #00ff00">green</span>) — mark for selection</div>
+    <div class="rm-line"><span class="rm-key">swipe left / Ctrl+click</span>flagged (<span style="color: #ff0000">red</span>) — visual warning (ALWAYS exported)</div>
     <div class="rm-line"><span class="rm-key">swipe again</span>revert to default</div>
-    <div class="rm-line"><span class="rm-key">right-click</span>toggle anchor</div>
-    <div class="rm-line"><span class="rm-key">CTRL+click</span>toggle flagged</div>
     <div class="rm-line"><span class="rm-key">hold (500ms)</span>ISO preview</div>
+    <div class="rm-line"><span class="rm-at">Green = selection. Red = warning (always exported, color preserved)</span></div>
   </div>
 
   <div class="rm-section">
-    <div class="rm-head">// EXPORT</div>
-    <div class="rm-line">Green entries selected → exports selection only.</div>
-    <div class="rm-line">No selection → exports full log.</div>
+    <div class="rm-head">// EXPORT LOGIC</div>
+    <div class="rm-line">• <span style="color: #ff0000">RED (flagged) entries</span> are ALWAYS exported</div>
+    <div class="rm-line">• <span style="color: #00ff00">GREEN (anchor) entries</span> are exported when present</div>
+    <div class="rm-line">• If no green entries → exports everything</div>
+    <div class="rm-line">• Export records (<span class="rm-at">[EXPORT]</span>) are metadata — excluded from counts</div>
     <div class="rm-line">Format: <span class="rm-at">timestamp|state|content</span></div>
   </div>
 
@@ -443,61 +487,166 @@
   </div>
 </div>
 
-
-
-<!-- Ghost scroll strip injected by JS below -->
-
 <script>
 (function () {
   'use strict';
+
+  // Trinity detonation — July 16, 1945, 05:29:21 MWT (11:29:21 UTC)
+  const AT_ZERO_UNIX = -771894639;
+  const AT_YEAR_SECONDS = 31556952; // mean astronomical year
+
+  function unixToATYear(unix) {
+    return (unix - AT_ZERO_UNIX) / AT_YEAR_SECONDS;
+  }
 
   const STORAGE_KEY = 'epoch_log';
   let entries = [];
   let container = null;
   let input = null;
   let tooltip = null;
+  let toastTimeout = null;
 
+  let tamperStartIndex = -1;
+
+  // ---------- Hash chain helpers ----------
+  const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
+
+  async function computeEntryHash(entry, prevHash) {
+    const data = `${prevHash}|${entry.timestamp}|${entry.state}|${entry.content}`;
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function verifyChain(entriesList) {
+    console.log('verifyChain called with', entriesList.length, 'entries');
+    if (entriesList.length === 0) {
+      tamperStartIndex = -1;
+      return true;
+    }
+    let prevHash = GENESIS_HASH;
+    for (let i = 0; i < entriesList.length; i++) {
+      const entry = entriesList[i];
+      if (!entry.hash) {
+        showToast('Legacy entry without hash — integrity cannot be fully verified', 'warning');
+        tamperStartIndex = i;
+        return false;
+      }
+      const computed = await computeEntryHash(entry, prevHash);
+      if (computed !== entry.hash) {
+        showToast(`⚠️ Integrity breach at entry ${i + 1}! Log may have been tampered.`, 'error');
+        tamperStartIndex = i;
+        return false;
+      }
+      prevHash = entry.hash;
+    }
+    tamperStartIndex = -1;
+    return true;
+  }
+
+  async function recomputeHashes(entriesList) {
+    let prevHash = GENESIS_HASH;
+    for (let i = 0; i < entriesList.length; i++) {
+      entriesList[i].hash = await computeEntryHash(entriesList[i], prevHash);
+      prevHash = entriesList[i].hash;
+    }
+    tamperStartIndex = -1;
+  }
+
+  // ---------- Toast ----------
+  function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toast.textContent = message;
+    toast.className = 'toast';
+    if (type === 'error') toast.classList.add('error');
+    if (type === 'warning') toast.classList.add('warning');
+    toast.classList.add('visible');
+    toastTimeout = setTimeout(() => {
+      toast.classList.remove('visible');
+    }, 3000);
+  }
+
+  // ---------- Atomic time display ----------
   function getAtomicTime(ts) {
     try {
       const date = new Date(ts * 1000);
       const timeString = date.toLocaleTimeString('en-GB');
-      const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      const delta = year - 1945;
-      const label = delta >= 0 ? `AT+/${delta}` : `AT-/${Math.abs(delta)}`;
-      return { 
-        label: label, 
+      const atFrac = unixToATYear(ts);
+      const atInt  = Math.floor(Math.abs(atFrac));
+      const sign   = atFrac >= 0 ? '+' : '-';
+      const label  = `AT${sign}/${atInt}`;
+      return {
+        label:    label,
         extended: `${label}/${month}/${day}`,
-        iso24h: timeString,
-        raw: ts
+        iso24h:   timeString,
+        raw:      ts
       };
     } catch (error) {
       return {
-        label: 'AT+/0',
+        label:    'AT+/0',
         extended: 'AT+/0/00/00',
-        iso24h: '00:00:00',
-        raw: ts
+        iso24h:   '00:00:00',
+        raw:      ts
       };
     }
   }
 
-  function load() {
+  // ---------- Data helpers ----------
+  function isExportRecord(entry) {
+    return entry.content && entry.content.startsWith('[EXPORT]');
+  }
+
+  function getUserEntries() {
+    return entries.filter(e => !isExportRecord(e));
+  }
+
+  // ---------- Storage ----------
+  async function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       entries = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(entries)) entries = [];
-    } catch (_) {
+      const chainValid = await verifyChain(entries);
+      return chainValid;
+    } catch (error) {
+      showToast('Failed to load data: ' + error.message, 'error');
       entries = [];
+      tamperStartIndex = -1;
+      return false;
     }
   }
 
-  function save() {
+  async function save() {
+    await recomputeHashes(entries);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    } catch (_) {}
+      return true;
+    } catch (error) {
+      if (error.name === 'QuotaExceededError') {
+        showToast('Storage quota exceeded. Export to save your data.', 'error');
+      } else {
+        showToast('Failed to save: ' + error.message, 'error');
+      }
+      return false;
+    }
   }
 
+  function addExportRecord(exportCount, format, exportDescription) {
+    const exportEntry = {
+      timestamp: Math.floor(Date.now() / 1000),
+      state: 'default',
+      content: `[EXPORT] ${exportCount} user entries exported (${format}) — ${exportDescription}`
+    };
+    entries.push(exportEntry);
+    save(); // will recompute all hashes
+  }
+
+  // ---------- State toggle ----------
   function toggleState(idx, direction) {
     const entry = entries[idx];
     if (!entry) return;
@@ -507,37 +656,37 @@
     } else {
       entry.state = direction;
     }
-    save();
-    render(false);
-    if (container) container.scrollTop = scrollTop;
+    save().then(() => {
+      const row = container.children[idx];
+      if (row) {
+        row.dataset.state = entry.state;
+        const tsSpan = row.querySelector('.entry-ts');
+        if (tsSpan) {
+          tsSpan.style.color = entry.state === 'anchor' ? 'var(--green)' : 
+                               entry.state === 'flagged' ? 'var(--red)' : '#e8e8e8';
+        }
+      }
+      if (container) container.scrollTop = scrollTop;
+    });
   }
 
+  // ---------- Tooltip ----------
   function showTooltip(ts, x, y) {
     if (!tooltip) return;
-
     const atomic = getAtomicTime(ts);
-
     const date = new Date(ts * 1000);
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');
-
     const isoDate = `${yyyy}-${mm}-${dd}`;
-    const line1 = `${atomic.extended} + ${isoDate}`;
-    const line2 = atomic.iso24h;
-
-    tooltip.innerHTML = `<strong>${line1}</strong><br>${line2}`;
+    tooltip.innerHTML = `<strong>${atomic.extended} + ${isoDate}</strong><br>${atomic.iso24h}`;
     tooltip.classList.add('visible');
-
     const tw = tooltip.offsetWidth || 260;
     const th = tooltip.offsetHeight || 48;
-
     let left = x - (tw / 2);
     let top = y - th - 12;
-
     left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
     top = Math.max(8, top);
-
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
   }
@@ -546,7 +695,7 @@
     if (tooltip) tooltip.classList.remove('visible');
   }
 
-
+  // ---------- Delta formatting ----------
   function formatDelta(seconds) {
     if (seconds < 0) seconds = 0;
     const h = Math.floor(seconds / 3600);
@@ -558,16 +707,20 @@
     return `+00:${pad(s)}`;
   }
 
+  // ---------- Rendering ----------
   function render(scrollToBottom) {
     if (!container) return;
     if (entries.length === 0) {
       container.innerHTML = '<div class="empty-state">// no entries yet<br>// type below and press enter</div>';
       return;
     }
-    const frag = document.createDocumentFragment();
+    container.innerHTML = '';
     entries.forEach((e, idx) => {
       const row = document.createElement('div');
       row.className = 'entry';
+      if (idx >= tamperStartIndex && tamperStartIndex !== -1) {
+        row.classList.add('tampered');
+      }
       row.dataset.state = e.state;
       row.dataset.idx = idx;
       const ts = document.createElement('span');
@@ -593,29 +746,29 @@
       row.appendChild(content);
       row.appendChild(delta);
       attachEntryEvents(row, idx, e.timestamp);
-      frag.appendChild(row);
+      container.appendChild(row);
     });
-    container.innerHTML = '';
-    container.appendChild(frag);
-    if (scrollToBottom) {
-      container.scrollTop = container.scrollHeight;
-    }
+    if (scrollToBottom) container.scrollTop = container.scrollHeight;
   }
 
   function attachEntryEvents(row, idx, ts) {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let swipeTriggered = false;
-    let longPressActive = false;
-    let longPressLocalTimer = null;
+    let touchStartX = 0, touchStartY = 0, swipeTriggered = false, longPressActive = false;
+    let longPressTimer = null, mouseHoldTimer = null;
+
+    function clearTimers() {
+      if (longPressTimer) clearTimeout(longPressTimer);
+      if (mouseHoldTimer) clearTimeout(mouseHoldTimer);
+      longPressTimer = mouseHoldTimer = null;
+    }
 
     row.addEventListener('touchstart', (e) => {
+      clearTimers();
       const t = e.touches[0];
       touchStartX = t.clientX;
       touchStartY = t.clientY;
       swipeTriggered = false;
       longPressActive = false;
-      longPressLocalTimer = setTimeout(() => {
+      longPressTimer = setTimeout(() => {
         longPressActive = true;
         showTooltip(ts, t.clientX, t.clientY);
       }, 500);
@@ -626,44 +779,36 @@
       const dx = t.clientX - touchStartX;
       const dy = t.clientY - touchStartY;
       if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-        clearTimeout(longPressLocalTimer);
+        clearTimers();
         if (longPressActive) hideTooltip();
       }
       if (!swipeTriggered && Math.abs(dx) > 50 && Math.abs(dy) < 35) {
         swipeTriggered = true;
-        clearTimeout(longPressLocalTimer);
+        clearTimers();
         if (longPressActive) hideTooltip();
         const dir = dx > 0 ? 'anchor' : 'flagged';
         row.classList.add(dx > 0 ? 'swiping-right' : 'swiping-left');
         toggleState(idx, dir);
-        setTimeout(() => {
-          row.classList.remove('swiping-right', 'swiping-left');
-        }, 200);
+        setTimeout(() => row.classList.remove('swiping-right', 'swiping-left'), 200);
       }
     }, { passive: true });
 
     row.addEventListener('touchend', () => {
-      clearTimeout(longPressLocalTimer);
+      clearTimers();
       if (longPressActive) hideTooltip();
-      longPressActive = false;
       swipeTriggered = false;
     });
-
     row.addEventListener('touchcancel', () => {
-      clearTimeout(longPressLocalTimer);
+      clearTimers();
       hideTooltip();
       swipeTriggered = false;
-      longPressActive = false;
     });
 
     row.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
         showTooltip(ts, e.clientX, e.clientY);
-        const hideOnUp = () => { 
-          hideTooltip(); 
-          document.removeEventListener('mouseup', hideOnUp); 
-        };
+        const hideOnUp = () => { hideTooltip(); document.removeEventListener('mouseup', hideOnUp); };
         document.addEventListener('mouseup', hideOnUp);
       } else {
         toggleState(idx, 'anchor');
@@ -677,46 +822,32 @@
       }
     });
 
-    let mouseHoldTimer = null;
-    let mousePreviewActive = false;
-
     row.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      mouseHoldTimer = setTimeout(() => {
-        mousePreviewActive = true;
-        showTooltip(ts, e.clientX, e.clientY);
-      }, 500);
+      clearTimers();
+      mouseHoldTimer = setTimeout(() => showTooltip(ts, e.clientX, e.clientY), 500);
     });
-
-    row.addEventListener('mouseup', () => {
-      clearTimeout(mouseHoldTimer);
-      if (mousePreviewActive) {
-        hideTooltip();
-        mousePreviewActive = false;
-      }
-    });
-
-    row.addEventListener('mouseleave', () => {
-      clearTimeout(mouseHoldTimer);
-      if (mousePreviewActive) {
-        hideTooltip();
-        mousePreviewActive = false;
-      }
-    });
+    row.addEventListener('mouseup', () => { clearTimers(); hideTooltip(); });
+    row.addEventListener('mouseleave', () => { clearTimers(); hideTooltip(); });
   }
 
-  function handleEntrySubmit() {
+  // ---------- Entry submission ----------
+  async function handleEntrySubmit() {
     if (!input) return;
     const content = input.value.trim();
-    if (!content) return;
-
-    // Command: /calc
+    if (!content) {
+      showToast('Entry cannot be empty', 'warning');
+      return;
+    }
+    if (content.length > 500) {
+      showToast('Entry too long (max 500 characters)', 'warning');
+      return;
+    }
     if (content === '/calc') {
       input.value = '';
       if (window._epochOpenCalc) window._epochOpenCalc();
       return;
     }
-
     const entry = {
       timestamp: Math.floor(Date.now() / 1000),
       state: 'default',
@@ -724,27 +855,45 @@
     };
     entries.push(entry);
     input.value = '';
-    save();
-    render(true);
-    const atomic = getAtomicTime(entry.timestamp);
-    console.log(`Entry added: ${atomic.extended} (${atomic.iso24h})`);
+    if (await save()) {
+      render(true);
+      const atomic = getAtomicTime(entry.timestamp);
+      const userCount = getUserEntries().length;
+      showToast(`Logged: ${atomic.extended} (${userCount} user entries)`, 'info');
+    }
   }
 
-  function exportLog() {
-    if (entries.length === 0) return;
+  // ---------- Export subset ----------
+  function getExportSubset() {
+    const userEntries = getUserEntries();
+    const redEntries = userEntries.filter(e => e.state === 'flagged');
+    const greenEntries = userEntries.filter(e => e.state === 'anchor');
+    if (greenEntries.length > 0) {
+      const exportSet = [...greenEntries, ...redEntries];
+      exportSet.sort((a, b) => a.timestamp - b.timestamp);
+      const uniqueSet = exportSet.filter((v, i, a) => a.findIndex(t => t.timestamp === v.timestamp && t.content === v.content) === i);
+      return { subset: uniqueSet, description: `${greenEntries.length} green + ${redEntries.length} red` };
+    } else {
+      return { subset: userEntries, description: `full log (${redEntries.length} red, ${userEntries.length - redEntries.length} default)` };
+    }
+  }
 
-    // If any entries are anchored (green), export only those.
-    // Otherwise export the full log.
-    const anchored = entries.filter(e => e.state === 'anchor');
-    const subset   = anchored.length > 0 ? anchored : entries;
-    const tag      = anchored.length > 0 ? 'selection' : 'full';
-
-    const lines = subset.map(e => `${e.timestamp}|${e.state}|${e.content}`).join('\n');
+  async function exportLog() {
+    const userEntries = getUserEntries();
+    if (userEntries.length === 0) {
+      showToast('No user entries to export', 'warning');
+      return;
+    }
+    const { subset, description } = getExportSubset();
+    const lines = subset.map(e => {
+      const escapedContent = e.content.replace(/\|/g, '\\|').replace(/\n/g, '\\n');
+      return `${e.timestamp}|${e.state}|${escapedContent}`;
+    }).join('\n');
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
     const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    const filename = `epoch_export_${tag}_${datePart}_${timePart}.txt`;
+    const filename = `epoch_export_${datePart}_${timePart}.txt`;
     const blob = new Blob([lines], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -754,14 +903,24 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    await addExportRecord(subset.length, 'standard', description);
+    const redCount = subset.filter(e => e.state === 'flagged').length;
+    const redMsg = redCount > 0 ? ` (${redCount} red)` : '';
+    showToast(`Exported ${subset.length} user entries${redMsg} — ${description}`, 'info');
   }
 
-  function exportWithAtomicTime() {
-    if (entries.length === 0) return;
-    const header = '#EPOCH Export with Atomic Time\n#FORMAT UNIX + AT\n';
-    const lines = entries.map(e => {
+  async function exportWithAtomicTime() {
+    const userEntries = getUserEntries();
+    if (userEntries.length === 0) {
+      showToast('No user entries to export', 'warning');
+      return;
+    }
+    const { subset, description } = getExportSubset();
+    const header = '# EPOCH Export with Atomic Time\n# ' + description.toUpperCase() + '\n# FORMAT: UNIX|AT_EXTENDED|STATE|CONTENT\n# STATE: default | anchor (green) | flagged (red)\n\n';
+    const lines = subset.map(e => {
       const atomic = getAtomicTime(e.timestamp);
-      return `${e.timestamp}|${atomic.extended}|${e.state}|${e.content}`;
+      const escapedContent = e.content.replace(/\|/g, '\\|').replace(/\n/g, '\\n');
+      return `${e.timestamp}|${atomic.extended}|${e.state}|${escapedContent}`;
     }).join('\n');
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -777,32 +936,26 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    await addExportRecord(subset.length, 'AT notation', description);
+    const redCount = subset.filter(e => e.state === 'flagged').length;
+    const redMsg = redCount > 0 ? ` (${redCount} red)` : '';
+    showToast(`Exported ${subset.length} user entries${redMsg} with AT notation — ${description}`, 'info');
   }
 
+  // ---------- UI setup ----------
   function setupAutoFocus() {
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.entry') && input) {
-        input.focus();
-      }
+      if (!e.target.closest('.entry') && !e.target.closest('.epoch-panel') && input) input.focus();
     });
   }
 
   function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'e' && !e.shiftKey) {
-        e.preventDefault();
-        exportLog();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
-        e.preventDefault();
-        exportWithAtomicTime();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
-        e.preventDefault();
-        if (window._epochToggleReadme) window._epochToggleReadme();
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e' && !e.shiftKey) { e.preventDefault(); exportLog(); }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') { e.preventDefault(); exportWithAtomicTime(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') { e.preventDefault(); if (window._epochToggleReadme) window._epochToggleReadme(); }
       if (e.key === 'Escape') {
-        if (window._epochCloseReadme)  window._epochCloseReadme();
+        if (window._epochCloseReadme) window._epochCloseReadme();
         const calcPanel = document.getElementById('panel-calc');
         if (calcPanel) calcPanel.classList.remove('visible');
         if (input) input.focus();
@@ -811,223 +964,159 @@
   }
 
   function setupInputListener() {
-    if (input) {
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleEntrySubmit();
-        }
-      });
-    }
+    if (input) input.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleEntrySubmit(); } });
   }
 
-  function logAtomicTimeReference() {
-    const now = Math.floor(Date.now() / 1000);
-    const atomic = getAtomicTime(now);
-    console.log(`EPOCH Ready - Current Atomic Time: ${atomic.label} (${atomic.iso24h})`);
-  }
-
-
-  /* ═══════════════════════════════════════════════════════════════════
-     AT CALCULATOR
-  ═══════════════════════════════════════════════════════════════════ */
+  // ---------- AT Calculator ----------
   function setupCalc() {
-    const panel     = document.getElementById('panel-calc');
+    const panel = document.getElementById('panel-calc');
     const calcInput = document.getElementById('calc-input');
-    const calcOut   = document.getElementById('calc-output');
-    const closeBtn  = document.getElementById('calc-close');
+    const calcOut = document.getElementById('calc-output');
+    const closeBtn = document.getElementById('calc-close');
 
-    function openCalc() {
-      panel.classList.add('visible');
-      calcInput.focus();
-    }
-    function closeCalc() {
-      panel.classList.remove('visible');
-      if (input) input.focus();
-    }
-
+    function openCalc() { panel.classList.add('visible'); calcInput.focus(); }
+    function closeCalc() { panel.classList.remove('visible'); if (input) input.focus(); }
     closeBtn.addEventListener('click', closeCalc);
 
-    // Convert Unix → AT or AT-style string → Unix
     function runCalc(val) {
       val = val.trim();
       if (!val) { calcOut.textContent = '—'; return; }
+      const DIM = 'color:#b30000;font-size:11px';
+      const MAIN = 'color:#ff0000;font-size:14px;font-weight:bold';
 
-      const DIM  = 'color:#8800000;font-size:11px';   // secondary info — dim
-      const MAIN = 'color:#ff0000;font-size:14px;font-weight:bold'; // primary result — bright
-
-      // ── Unix integer → AT + ISO date ─────────────────────────────
       if (/^-?\d{8,}$/.test(val)) {
-        const ts   = parseInt(val, 10);
+        const ts = parseInt(val, 10);
         const date = new Date(ts * 1000);
-        const y    = date.getFullYear();
-        const m    = String(date.getMonth()+1).padStart(2,'0');
-        const d    = String(date.getDate()).padStart(2,'0');
-        const atY  = y - 1945;
-        const sign = atY >= 0 ? '+' : '-';
-        const atStr = `AT${sign}/${Math.abs(atY)}/${m}/${d}`;
-        calcOut.innerHTML =
-          `<span style="${MAIN}">${atStr}</span><br>` +
-          `<span style="${DIM}">${date.toISOString().slice(0,10)}</span>`;
+        const m = String(date.getMonth()+1).padStart(2,'0');
+        const d = String(date.getDate()).padStart(2,'0');
+        const atFrac = unixToATYear(ts);
+        const atY = Math.floor(Math.abs(atFrac));
+        const sign = atFrac >= 0 ? '+' : '-';
+        const atStr = `AT${sign}/${atY}/${m}/${d}`;
+        calcOut.innerHTML = `<span style="${MAIN}">${atStr}</span><br><span style="${DIM}">${date.toISOString().slice(0,10)}</span>`;
         return;
       }
 
-      // ── YYYY/MM/DD or YYYY-MM-DD → AT+/- ─────────────────────────
       const gregMatch = val.match(/^(-?\d{1,4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
       if (gregMatch) {
         const year = parseInt(gregMatch[1], 10);
-        const mo   = parseInt(gregMatch[2], 10);
-        const dy   = parseInt(gregMatch[3], 10);
+        const mo = parseInt(gregMatch[2], 10);
+        const dy = parseInt(gregMatch[3], 10);
+        if (mo < 1 || mo > 12 || dy < 1 || dy > 31) { calcOut.textContent = 'invalid date'; return; }
         const date = new Date(Date.UTC(year, mo-1, dy, 12, 0, 0));
-        // Handle years < 100 — Date.UTC misinterprets them
         date.setUTCFullYear(year);
-        const atY  = year - 1945;
-        const sign = atY >= 0 ? '+' : '-';
         const unix = Math.floor(date.getTime() / 1000);
-        const atStr = `AT${sign}/${Math.abs(atY)}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
-        calcOut.innerHTML =
-          `<span style="${MAIN}">${atStr}</span><br>` +
-          `<span style="${DIM}">unix ${unix}</span>`;
+        const atFrac = unixToATYear(unix);
+        const atY = Math.floor(Math.abs(atFrac));
+        const sign = atFrac >= 0 ? '+' : '-';
+        const atStr = `AT${sign}/${atY}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
+        calcOut.innerHTML = `<span style="${MAIN}">${atStr}</span><br><span style="${DIM}">unix ${unix}</span>`;
         return;
       }
 
-      // ── AT+/N or AT+/N/MM/DD → Unix + Gregorian date ─────────────
       const atMatch = val.match(/^AT([+-])\/?(-?\d+)(?:\/(\d{1,2})(?:\/(\d{1,2}))?)?$/i);
       if (atMatch) {
-        const sign  = atMatch[1] === '+' ? 1 : -1;
-        const yOff  = parseInt(atMatch[2], 10);
-        const mo    = atMatch[3] ? parseInt(atMatch[3], 10) : 1;
-        const dy    = atMatch[4] ? parseInt(atMatch[4], 10) : 1;
-        const year  = 1945 + sign * yOff;
-        const date  = new Date(Date.UTC(year, mo-1, dy, 12, 0, 0));
+        const sign = atMatch[1] === '+' ? 1 : -1;
+        const yOff = parseInt(atMatch[2], 10);
+        const mo = atMatch[3] ? parseInt(atMatch[3], 10) : 1;
+        const dy = atMatch[4] ? parseInt(atMatch[4], 10) : 1;
+        if (mo < 1 || mo > 12 || dy < 1 || dy > 31) { calcOut.textContent = 'invalid date'; return; }
+        if (yOff === 0 && !atMatch[3]) {
+          const trinityDate = new Date(AT_ZERO_UNIX * 1000);
+          const year = trinityDate.getUTCFullYear();
+          const month = String(trinityDate.getUTCMonth() + 1).padStart(2,'0');
+          const day = String(trinityDate.getUTCDate()).padStart(2,'0');
+          calcOut.innerHTML = `<span style="${MAIN}">${year}/${month}/${day}</span><br><span style="${DIM}">unix ${AT_ZERO_UNIX}</span>`;
+          return;
+        }
+        const year = 1945 + sign * yOff;
+        const date = new Date(Date.UTC(year, mo-1, dy, 12, 0, 0));
         date.setUTCFullYear(year);
-        const unix  = Math.floor(date.getTime() / 1000);
-        const greg  = `${year}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
-        calcOut.innerHTML =
-          `<span style="${MAIN}">${greg}</span><br>` +
-          `<span style="${DIM}">unix ${unix}</span>`;
+        const unix = Math.floor(date.getTime() / 1000);
+        const greg = `${year}/${String(mo).padStart(2,'0')}/${String(dy).padStart(2,'0')}`;
+        calcOut.innerHTML = `<span style="${MAIN}">${greg}</span><br><span style="${DIM}">unix ${unix}</span>`;
         return;
       }
-
       calcOut.textContent = 'unrecognized format';
     }
 
-    calcInput.addEventListener('input',   () => runCalc(calcInput.value));
+    calcInput.addEventListener('input', () => runCalc(calcInput.value));
     calcInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCalc(); });
-
-    // Expose openCalc for command handler
     window._epochOpenCalc = openCalc;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════
-     README PANEL
-  ═══════════════════════════════════════════════════════════════════ */
+  // ---------- Readme ----------
   function setupReadme() {
-    const panel    = document.getElementById('panel-readme');
+    const panel = document.getElementById('panel-readme');
     const closeBtn = document.getElementById('readme-close');
-    const atSpan   = document.getElementById('rm-current-at');
+    const atSpan = document.getElementById('rm-current-at');
+    const exSpan = document.getElementById('rm-example-at');
 
-    // Fill current AT year
-    const atY = new Date().getFullYear() - 1945;
-    if (atSpan) atSpan.textContent = `AT+/${atY}`;
+    function updateATYear() {
+      const nowUnix = Math.floor(Date.now() / 1000);
+      const atY = Math.floor(unixToATYear(nowUnix));
+      if (atSpan) atSpan.textContent = `AT+/${atY}`;
+      if (exSpan) exSpan.textContent = `AT+/${atY}`;
+    }
+
+    // Initial update
+    updateATYear();
+
+    // Update every minute to keep the displayed AT year current
+    setInterval(updateATYear, 60000);
 
     function toggleReadme() { panel.classList.toggle('visible'); }
-    function closeReadme()  { panel.classList.remove('visible'); if (input) input.focus(); }
-
+    function closeReadme() { panel.classList.remove('visible'); if (input) input.focus(); }
     closeBtn.addEventListener('click', closeReadme);
     window._epochToggleReadme = toggleReadme;
-    window._epochCloseReadme  = closeReadme;
+    window._epochCloseReadme = closeReadme;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════
-     GHOST SCROLL STRIP
-     Invisible 20px strip on the right edge.
-     Hover reveals a dim thumb. Drag scrolls the log proportionally.
-  ═══════════════════════════════════════════════════════════════════ */
+  // ---------- Ghost scroll ----------
   function setupGhostScroll() {
     const log = document.getElementById('entries-container');
     if (!log) return;
-
     const strip = document.createElement('div');
     strip.id = 'ghost-scroll';
     const thumb = document.createElement('div');
     thumb.id = 'ghost-scroll-thumb';
     strip.appendChild(thumb);
     document.body.appendChild(strip);
-
     let dragging = false;
-
     function updateThumb() {
       const scrollable = log.scrollHeight - log.clientHeight;
-      if (scrollable <= 0) {
-        thumb.style.height = '100%';
-        thumb.style.top = '0px';
-        return;
-      }
-      const ratio  = log.clientHeight / log.scrollHeight;
-      const hPct   = Math.max(ratio * 100, 10);
+      if (scrollable <= 0) { thumb.style.height = '100%'; thumb.style.top = '0px'; return; }
+      const ratio = log.clientHeight / log.scrollHeight;
+      const hPct = Math.max(ratio * 100, 10);
       const topPct = (log.scrollTop / scrollable) * (100 - hPct);
       thumb.style.height = hPct + '%';
-      thumb.style.top    = topPct + '%';
+      thumb.style.top = topPct + '%';
     }
-
     function scrollFromY(clientY) {
-      const rect     = strip.getBoundingClientRect();
-      const rel      = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      const rect = strip.getBoundingClientRect();
+      const rel = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
       const scrollable = log.scrollHeight - log.clientHeight;
-      log.scrollTop  = rel * scrollable;
+      log.scrollTop = rel * scrollable;
       updateThumb();
     }
-
-    // Mouse
-    strip.addEventListener('mouseenter', () => {
-      strip.classList.add('active');
-      updateThumb();
-    });
-    strip.addEventListener('mouseleave', () => {
-      if (!dragging) strip.classList.remove('active');
-    });
-    strip.addEventListener('mousedown', (e) => {
-      dragging = true;
-      strip.classList.add('dragging');
-      scrollFromY(e.clientY);
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', (e) => {
-      if (dragging) scrollFromY(e.clientY);
-    });
-    document.addEventListener('mouseup', () => {
-      if (!dragging) return;
-      dragging = false;
-      strip.classList.remove('dragging', 'active');
-    });
-
-    // Touch
-    strip.addEventListener('touchstart', (e) => {
-      dragging = true;
-      strip.classList.add('dragging');
-      scrollFromY(e.touches[0].clientY);
-      e.preventDefault();
-    }, { passive: false });
-    strip.addEventListener('touchmove', (e) => {
-      if (dragging) scrollFromY(e.touches[0].clientY);
-      e.preventDefault();
-    }, { passive: false });
-    strip.addEventListener('touchend', () => {
-      dragging = false;
-      strip.classList.remove('dragging');
-    });
-
-    // Keep thumb in sync with normal scroll
+    strip.addEventListener('mouseenter', () => { strip.classList.add('active'); updateThumb(); });
+    strip.addEventListener('mouseleave', () => { if (!dragging) strip.classList.remove('active'); });
+    strip.addEventListener('mousedown', (e) => { dragging = true; strip.classList.add('dragging'); scrollFromY(e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', (e) => { if (dragging) scrollFromY(e.clientY); });
+    document.addEventListener('mouseup', () => { dragging = false; strip.classList.remove('dragging', 'active'); });
+    strip.addEventListener('touchstart', (e) => { dragging = true; strip.classList.add('dragging'); scrollFromY(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    strip.addEventListener('touchmove', (e) => { if (dragging) scrollFromY(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    strip.addEventListener('touchend', () => { dragging = false; strip.classList.remove('dragging'); });
     log.addEventListener('scroll', updateThumb, { passive: true });
     updateThumb();
   }
 
-  function init() {
+  // ---------- Initialisation ----------
+  async function init() {
     container = document.getElementById('entries-container');
     input = document.getElementById('entry-input');
     tooltip = document.getElementById('iso-tooltip');
-    load();
+    const chainValid = await load();
     render(true);
     setupInputListener();
     setupKeyboardShortcuts();
@@ -1036,7 +1125,12 @@
     setupReadme();
     setupGhostScroll();
     if (input) input.focus();
-    logAtomicTimeReference();
+    const userCount = getUserEntries().length;
+    if (chainValid) {
+      showToast(`EPOCH ready — ${userCount} user entries, red ALWAYS exported, hash chain active`, 'info');
+    } else {
+      console.log('Chain invalid; error toast already shown.');
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -1046,6 +1140,5 @@
   }
 })();
 </script>
-
 </body>
 </html>
