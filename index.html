@@ -493,9 +493,7 @@
 
   // Detect touch-primary devices — on mobile, gestures are disabled.
   // Input and scroll work normally. States can be set on desktop.
-  function isMobile() {
-    return window.matchMedia('(pointer: coarse)').matches;
-  }
+  const IS_MOBILE = window.matchMedia('(pointer: coarse)').matches;
 
 
   // Trinity detonation — July 16, 1945, 05:29:21 MWT (11:29:21 UTC)
@@ -527,7 +525,6 @@
   }
 
   async function verifyChain(entriesList) {
-    console.log('verifyChain called with', entriesList.length, 'entries');
     if (entriesList.length === 0) {
       tamperStartIndex = -1;
       return true;
@@ -552,9 +549,11 @@
     return true;
   }
 
-  async function recomputeHashes(entriesList) {
-    let prevHash = GENESIS_HASH;
-    for (let i = 0; i < entriesList.length; i++) {
+  async function recomputeHashes(entriesList, fromIndex = 0) {
+    if (entriesList.length === 0) { tamperStartIndex = -1; return; }
+    const start = Math.max(0, fromIndex);
+    let prevHash = start === 0 ? GENESIS_HASH : entriesList[start - 1].hash || GENESIS_HASH;
+    for (let i = start; i < entriesList.length; i++) {
       entriesList[i].hash = await computeEntryHash(entriesList[i], prevHash);
       prevHash = entriesList[i].hash;
     }
@@ -562,7 +561,7 @@
   }
 
   // ---------- Toast ----------
-  function showToast(message, type = 'info') {
+  function showToast(message, type = 'info', duration = 3000) {
     const toast = document.getElementById('toast');
     if (!toast) return;
     if (toastTimeout) clearTimeout(toastTimeout);
@@ -573,7 +572,7 @@
     toast.classList.add('visible');
     toastTimeout = setTimeout(() => {
       toast.classList.remove('visible');
-    }, 3000);
+    }, duration);
   }
 
   // ---------- Atomic time display ----------
@@ -628,8 +627,8 @@
     }
   }
 
-  async function save() {
-    await recomputeHashes(entries);
+  async function save(fromIndex = 0) {
+    await recomputeHashes(entries, fromIndex);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
       return true;
@@ -643,14 +642,14 @@
     }
   }
 
-  function addExportRecord(exportCount, format, exportDescription) {
+  async function addExportRecord(exportCount, format, exportDescription) {
     const exportEntry = {
       timestamp: Math.floor(Date.now() / 1000),
       state: 'default',
       content: `[EXPORT] ${exportCount} user entries exported (${format}) — ${exportDescription}`
     };
     entries.push(exportEntry);
-    save(); // will recompute all hashes
+    await save(entries.length - 1);
   }
 
   // ---------- State toggle ----------
@@ -663,7 +662,7 @@
     } else {
       entry.state = direction;
     }
-    save().then(() => {
+    save(idx).then(() => {
       const row = container.children[idx];
       if (row) {
         row.dataset.state = entry.state;
@@ -768,7 +767,7 @@
       longPressTimer = mouseHoldTimer = null;
     }
 
-    if (!isMobile()) {
+    if (!IS_MOBILE) {
       // Desktop-only: swipe gestures + long-press ISO preview
       row.addEventListener('touchstart', (e) => {
         clearTimers();
@@ -881,8 +880,7 @@
     if (greenEntries.length > 0) {
       const exportSet = [...greenEntries, ...redEntries];
       exportSet.sort((a, b) => a.timestamp - b.timestamp);
-      const uniqueSet = exportSet.filter((v, i, a) => a.findIndex(t => t.timestamp === v.timestamp && t.content === v.content) === i);
-      return { subset: uniqueSet, description: `${greenEntries.length} green + ${redEntries.length} red` };
+      return { subset: exportSet, description: `${greenEntries.length} green + ${redEntries.length} red` };
     } else {
       return { subset: userEntries, description: `full log (${redEntries.length} red, ${userEntries.length - redEntries.length} default)` };
     }
@@ -1137,9 +1135,7 @@
     if (input) input.focus();
     const userCount = getUserEntries().length;
     if (chainValid) {
-      showToast(`EPOCH ready — ${userCount} user entries, red ALWAYS exported, hash chain active`, 'info');
-    } else {
-      console.log('Chain invalid; error toast already shown.');
+      showToast(`EPOCH ready — ${userCount} user entries, hash chain active`, 'info', 5000);
     }
   }
 
